@@ -8,6 +8,11 @@ enum FlightStages implements Trackable {GROUNDED, LAUNCH, CRUISE, DATA_COLLECTIO
             System.out.println("Tracking " + this);
         }
     }
+
+    public FlightStages getNextStage() {
+        FlightStages[] allStages = values();
+        return allStages[(ordinal() + 1) % allStages.length];
+    }
 };
 record DragonFly(String name, String type) implements FlightEnabled {
     @Override
@@ -28,29 +33,58 @@ record DragonFly(String name, String type) implements FlightEnabled {
 
 
 class Satellite implements OrbitEarth {
+
+    FlightStages stage = FlightStages.GROUNDED;
+
+
     @Override
     public void takeOff() {
-        System.out.println(getClass().getSimpleName() + " Satellite is taking off");
+        transition("Taking off");
     }
 
     @Override
     public void land() {
-        System.out.println(getClass().getSimpleName() + " Satellite is landing");
+        transition("Landing");
     }
 
     @Override
     public void fly() {
-        System.out.println(getClass().getSimpleName() + " Satellite is flying");
+        achieveOrbit();
+        transition("Flying");
+    }
+
+    public void transition(String description) {
+        System.out.println(description);
+        stage = transition(stage);
+        stage.track();
     }
 
     @Override
     public void achieveOrbit() {
-        System.out.println(getClass().getSimpleName() + " Satellite is achieving orbit");
+        transition(getClass().getSimpleName() + " Satellite is achieving orbit");
     }
+
 }
 
 interface OrbitEarth extends FlightEnabled {
     void achieveOrbit();
+
+    private static void log(String description) {
+        var today = new java.util.Date();
+        System.out.println(today + ": " + description);
+    }
+
+    private void logState(FlightStages stage, String description) {
+        description = stage + ": " + description;
+        log(description);
+    }
+
+    @Override
+    default FlightStages transition(FlightStages stage) {
+        FlightStages nextStage = FlightEnabled.super.transition(stage);
+        logState(nextStage, "Transitioning to " + nextStage);
+        return nextStage;
+    }
 }
 
 interface FlightEnabled {
@@ -61,6 +95,14 @@ interface FlightEnabled {
     void takeOff();
     void land();
     void fly();
+
+    default FlightStages transition(FlightStages stage){
+//        System.out.println("Transition not implemented on " + getClass().getName());
+//        return null;
+        FlightStages nextStage = stage.getNextStage();
+        System.out.println("Transitioning from " + stage + " to " + nextStage);
+        return nextStage;
+    }
 }
 
 interface Trackable {
